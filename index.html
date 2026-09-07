@@ -163,7 +163,12 @@
     align-items: stretch;
   }
 
+  /* Toutes les tuiles adoptent la hauteur de la plus haute, calculée après
+     chaque rendu. Sans cela, une section dont les libellés sont longs produit
+     des tuiles plus hautes que la section voisine, et les rangées ne
+     s'alignent plus d'une colonne à l'autre. */
   .tuile {
+    min-height: var(--hauteur-tuile, auto);
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -751,6 +756,7 @@
     for (let i = 0; i < NIVEAUX.length; i++) {
       appliquerNiveau(NIVEAUX[i]);
       rendreContenu(NIVEAUX[i]);
+      uniformiserHauteurs();
       if (!deborde()) { return; }
     }
   }
@@ -832,6 +838,19 @@
     });
   }
 
+  // Mesure la tuile la plus haute et impose cette hauteur à toutes. Appelée
+  // après chaque rendu, donc avant le test de débordement du niveau courant.
+  function uniformiserHauteurs() {
+    const racine = document.documentElement.style;
+    racine.setProperty(`--hauteur-tuile`, `auto`);
+    let haute = 0;
+    document.querySelectorAll(`.tuile`).forEach(function (t) {
+      const h = t.getBoundingClientRect().height;
+      if (h > haute) { haute = h; }
+    });
+    racine.setProperty(`--hauteur-tuile`, haute > 0 ? Math.ceil(haute) + `px` : `auto`);
+  }
+
   function afficher() {
     const prepare = preparerItems();
     afficherBandeaux(prepare.sansLien);
@@ -872,16 +891,21 @@
     afficher();
   });
 
-  // Le panneau Grist peut être redimensionné à tout moment : la densité est
-  // recalculée après un court délai, pour ne pas rejouer le calcul à chaque
-  // pixel pendant un glissement de la bordure.
-  let attenteRedim = null;
+  // Le panneau Grist peut être redimensionné à tout moment. Le recalcul est fait
+  // dès la frame suivante, et non après un délai : pendant un délai, la mise en
+  // page se réorganise avec les réglages de l'ancienne taille, ce qui produit
+  // des retours à la ligne et des décalages visibles avant correction.
+  // requestAnimationFrame regroupe les événements d'un même rafraîchissement,
+  // ce qui évite de rejouer le calcul plusieurs fois par frame pendant un
+  // glissement de bordure.
+  let redimEnAttente = false;
   window.addEventListener(`resize`, function () {
-    if (attenteRedim !== null) { clearTimeout(attenteRedim); }
-    attenteRedim = setTimeout(function () {
-      attenteRedim = null;
+    if (redimEnAttente) { return; }
+    redimEnAttente = true;
+    requestAnimationFrame(function () {
+      redimEnAttente = false;
       afficher();
-    }, 150);
+    });
   });
 
   grist.ready({
