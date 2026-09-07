@@ -74,6 +74,16 @@ aux tuiles une largeur minimale suffisante pour l'accueillir en entier. Seul un
 mot dépassant 260 pixels de large, ce qui est rare, reste coupé faute de place
 raisonnable.
 
+Toutes les tuiles adoptent la hauteur de la plus haute, mesurée après chaque
+rendu. Sans cela, une section aux libellés longs produit des tuiles plus hautes
+que la section voisine, et les rangées ne s'alignent plus d'une colonne à
+l'autre.
+
+Le recalcul déclenché par un redimensionnement du panneau intervient dès la
+frame suivante, sans délai d'attente. Un délai laissait apparaître une mise en
+page transitoire, réorganisée avec les réglages de l'ancienne taille, avec des
+retours à la ligne et des décalages visibles avant correction.
+
 Le texte intégral reste accessible au survol de la souris. L'infobulle d'une
 tuile reprend toujours le nom complet, le détail complet, le Type complet et
 l'adresse, quelle que soit la densité appliquée.
