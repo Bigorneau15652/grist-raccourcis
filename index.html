@@ -218,7 +218,11 @@
   }
   /* break-word et non anywhere : un nom composé de plusieurs mots passe à la
      ligne entre les mots, et seul un mot trop long pour la tuile est coupé.
-     Avec anywhere, « TABLEAU DE BORD SALLE » se coupait en « BOR » et « D ». */
+     Avec anywhere, « TABLEAU DE BORD SALLE » se coupait en « BOR » et « D ».
+     hyphens: auto ajoute la césure typographique, en français grâce au
+     lang="fr" de la page : un mot trop large pour la tuile est coupé à une
+     limite syllabique et signalé par un trait d'union, au lieu d'être tranché
+     sans avertissement en « Consommation » et « s électriques ». */
   .nom {
     font-weight: 700;
     font-size: var(--nom);
@@ -226,6 +230,8 @@
     color: var(--texte);
     white-space: normal;
     overflow-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
   }
   /* Meme exception assumee que pour le detail : aux densites serrees, un nom
      tres long est limite a quelques lignes, le texte entier restant lisible
@@ -244,6 +250,8 @@
     color: var(--texte-doux);
     white-space: normal;
     overflow-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
   }
 
   /* Exception assumée à la règle « ne jamais rogner du texte utilisateur » :
@@ -306,6 +314,9 @@
   const SANS_TYPE = `\u0000sans-type`;
   const MAX_EXEMPLES = 5;
   const LETTRES_BADGE = 3;
+  // Au-delà de cette largeur, une tuile deviendrait absurde pour un seul mot :
+  // un mot plus long que cela est alors coupé, faute de mieux.
+  const LARGEUR_TUILE_MAX = 260;
 
   // Paliers visuels, du plus confortable au plus serré. Chaque palier réduit,
   // dans l'ordre, l'espacement, la taille du picto, le nombre de lignes du
@@ -346,6 +357,7 @@
     erreurCouleurs: null,
     recherche: ``,
     visibles: [],
+    mots: [],
   };
 
   // ------------------------------------------------------------- outils
@@ -409,6 +421,32 @@
 
   function abreger(valeurType) {
     return valeurType.slice(0, LETTRES_BADGE).toUpperCase();
+  }
+
+  // Largeur du mot le plus long des noms affichés, dans la police du niveau
+  // courant. Elle sert à imposer aux tuiles une largeur minimale suffisante,
+  // de sorte qu'aucun mot n'ait besoin d'être coupé.
+  let contexteMesure = null;
+
+  function largeurMotMax(taillePolice) {
+    if (!etat.mots.length) { return 0; }
+    if (!contexteMesure) {
+      contexteMesure = document.createElement(`canvas`).getContext(`2d`);
+    }
+    contexteMesure.font = `700 ` + taillePolice + ` ` + getComputedStyle(document.body).fontFamily;
+    let large = 0;
+    etat.mots.forEach(function (mot) {
+      const l = contexteMesure.measureText(mot).width;
+      if (l > large) { large = l; }
+    });
+    return large;
+  }
+
+  // « 10px 12px 14px » donne 12px de chaque côté, soit 24px à réserver.
+  function padHorizontal(padTuile) {
+    const parts = String(padTuile).trim().split(/\s+/);
+    const lateral = parts.length > 1 ? parseFloat(parts[1]) : parseFloat(parts[0]);
+    return (isNaN(lateral) ? 0 : lateral) * 2;
   }
 
   function champ(enr, cle) {
@@ -680,7 +718,9 @@
 
   function appliquerNiveau(niveau) {
     const r = document.documentElement.style;
-    r.setProperty(`--tuile-min`, niveau.min);
+    const besoin = Math.ceil(largeurMotMax(niveau.nom)) + padHorizontal(niveau.padTuile) + 6;
+    const mini = Math.min(Math.max(parseFloat(niveau.min), besoin), LARGEUR_TUILE_MAX);
+    r.setProperty(`--tuile-min`, mini + `px`);
     r.setProperty(`--colonne`, niveau.colonne);
     r.setProperty(`--picto`, niveau.picto);
     r.setProperty(`--nom`, niveau.nom);
@@ -799,6 +839,14 @@
     const total = prepare.items.length;
     const visibles = filtrer(prepare.items);
     etat.visibles = total === 0 ? null : visibles;
+
+    const mots = [];
+    visibles.forEach(function (it) {
+      (it.nom || ``).split(/[\s\u00a0]+/).forEach(function (mot) {
+        if (mot !== ``) { mots.push(mot); }
+      });
+    });
+    etat.mots = mots;
 
     const compteur = document.getElementById(`compteur`);
     if (total === 0) {

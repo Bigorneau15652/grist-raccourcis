@@ -68,6 +68,12 @@ seule grille, rangées dans l'ordre des Types, la couleur du badge continuant de
 porter cette information ; la place ainsi libérée permet alors de repartir de
 tuiles plus grandes plutôt que de continuer à les rapetisser.
 
+Les mots ne sont jamais coupés. Avant chaque affichage, le widget mesure le mot
+le plus long parmi les noms affichés, dans la police du niveau retenu, et impose
+aux tuiles une largeur minimale suffisante pour l'accueillir en entier. Seul un
+mot dépassant 260 pixels de large, ce qui est rare, reste coupé faute de place
+raisonnable.
+
 Le texte intégral reste accessible au survol de la souris. L'infobulle d'une
 tuile reprend toujours le nom complet, le détail complet, le Type complet et
 l'adresse, quelle que soit la densité appliquée.
