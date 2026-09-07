@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raccourcis de navigation</title>
+<script>
+  // index.html?demo=1 charge un mock minimal de l'API Grist (mock-grist.js) à la
+  // place du vrai grist-plugin-api.js, pour pouvoir tester ce fichier (rendu des
+  // tuiles, couleurs de Type, recherche) sans document Grist réel.
+  (function () {
+    var demo = /(?:^|[?&])demo=1(?:&|$)/.test(location.search);
+    if (demo) {
+      document.write('<script src="mock-grist.js"><\/script>');
+    } else {
+      document.write('<script src="https://docs.getgrist.com/grist-plugin-api.js"><\/script>');
+    }
+  })();
+</script>
+<style>
+  :root {
+    /* Sans color-scheme: light, un <input> ou un <button> avec un fond blanc
+       explicite mais sans couleur de texte explicite s'affiche en blanc sur
+       blanc quand le navigateur ou le système est en thème sombre. */
+    color-scheme: light;
+    --bordure: #d7dde5;
+    --texte: #16202b;
+    --texte-doux: #5b6472;
+    --fond: #f4f6f8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--texte);
+    background: var(--fond);
+    font-size: 14px;
+  }
+
+  /* Barre d'outils volontairement en position statique : une barre collante
+     (position: sticky) dans un panneau de widget Grist étroit a déjà rendu du
+     texte illisible tant qu'on ne survolait pas la zone. */
+  #barre {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 12px;
+    background: #fff;
+    border-bottom: 1px solid var(--bordure);
+  }
+  #recherche {
+    flex: 1 1 140px;
+    min-width: 120px;
+    max-width: 320px;
+    font-size: 13px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    border: 1px solid #94a3b8;
+    background: #ffffff;
+    color: var(--texte);
+  }
+  #recherche::placeholder { color: #7c8797; }
+  #barre button {
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #94a3b8;
+    background: #ffffff;
+    color: var(--texte);
+    cursor: pointer;
+  }
+  #barre button:hover { background: #eef2f6; }
+  #compteur {
+    font-size: 12.5px;
+    color: var(--texte-doux);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Bandeaux d'alerte : contraste fort et solide, jamais dépendants du survol,
+     texte qui passe à la ligne au lieu d'être rogné. */
+  #bandeaux { display: flex; flex-direction: column; gap: 8px; }
+  #bandeaux:not(:empty) { padding: 10px 12px 0; }
+  .bandeau {
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .bandeau-erreur { background: #7a1f1f; color: #ffffff; }
+  .bandeau-avert { background: #7a4a12; color: #ffffff; }
+  .bandeau b { font-weight: 800; }
+
+  #contenu { padding: 12px; }
+
+  .groupe { margin-bottom: 18px; }
+  .groupe:last-child { margin-bottom: 0; }
+  .groupe-titre {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--texte-doux);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .groupe-pastille {
+    flex: 0 0 auto;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+  }
+  .groupe-nombre { font-weight: 600; color: var(--texte-doux); }
+
+  /* Grille responsive : le nombre de colonnes suit la largeur réelle du
+     panneau, sans point de rupture codé en dur. */
+  .grille {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .tuile {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px 14px;
+    background: #ffffff;
+    border: 1px solid var(--bordure);
+    border-radius: 10px;
+    text-align: center;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+  }
+  .tuile:hover, .tuile:focus-visible {
+    border-color: #7c8797;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.13);
+    transform: translateY(-1px);
+    outline: none;
+  }
+  .tuile:focus-visible { border-color: #16202b; }
+
+  /* Le badge de Type occupe une ligne propre alignée à droite : il est donc
+     toujours en haut à droite, sans jamais recouvrir le nom sur une tuile
+     étroite. */
+  .tuile-haut {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    gap: 4px;
+    flex-wrap: wrap;
+    min-height: 18px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.35;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+
+  .picto {
+    font-size: 30px;
+    line-height: 1.1;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .nom {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--texte);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .detail {
+    font-style: italic;
+    font-size: 12.5px;
+    color: var(--texte-doux);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .tuile-inactive {
+    cursor: default;
+    background: #f1f3f6;
+    border-style: dashed;
+    border-color: #b6bfcc;
+  }
+  .tuile-inactive:hover {
+    transform: none;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    border-color: #b6bfcc;
+  }
+  .sans-lien {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #7a1f1f;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  #vide {
+    padding: 18px 12px;
+    font-size: 13.5px;
+    color: var(--texte-doux);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+</style>
+</head>
+<body>
+  <div id="bandeaux"></div>
+  <div id="barre">
+    <input id="recherche" type="search" placeholder="Rechercher un raccourci" aria-label="Rechercher un raccourci">
+    <button id="actualiser" type="button" title="Relire les couleurs définies dans la colonne Type">Actualiser</button>
+    <span id="compteur"></span>
+  </div>
+  <div id="contenu"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Couleur de repli identique à celle d'un choix Grist sans couleur définie.
+  const COULEUR_DEFAUT = { fill: `#EEEEEE`, text: `#262633` };
+  const SANS_TYPE = `\u0000sans-type`;
+  const MAX_EXEMPLES = 5;
+
+  const etat = {
+    enregistrements: [],
+    mappings: null,
+    ordreTypes: [],
+    couleursTypes: {},
+    erreurCouleurs: null,
+    recherche: ``,
+  };
+
+  // ------------------------------------------------------------- outils
+
+  function texte(v) {
+    if (v === null || v === undefined) { return ``; }
+    return String(v).trim();
+  }
+
+  function normaliser(s) {
+    return String(s || ``)
+      .toLowerCase()
+      .normalize(`NFD`)
+      .replace(/[\u0300-\u036f]/g, ``)
+      .trim();
+  }
+
+  // Une colonne Choix unique renvoie une chaîne ; une colonne Liste de choix
+  // renvoie ["L", "valeur1", "valeur2"].
+  function valeursType(v) {
+    if (v === null || v === undefined || v === ``) { return []; }
+    if (Array.isArray(v)) {
+      const brut = v.length && v[0] === `L` ? v.slice(1) : v;
+      return brut.map(texte).filter(function (s) { return s !== ``; });
+    }
+    const s = texte(v);
+    return s === `` ? [] : [s];
+  }
+
+  // On n'accepte que des adresses réellement navigables, pour écarter par
+  // exemple un javascript: collé par erreur dans la colonne.
+  function lienSur(brut) {
+    const s = texte(brut);
+    if (s === ``) { return null; }
+    if (/^https?:\/\//i.test(s)) { return s; }
+    if (/^mailto:/i.test(s)) { return s; }
+    if (s.charAt(0) === `/`) { return s; }
+    if (/^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(s)) { return `https://` + s; }
+    return null;
+  }
+
+  function luminance(hex) {
+    const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(String(hex || ``));
+    if (!m) { return 1; }
+    let h = m[1];
+    if (h.length === 3) { h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; }
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    const lin = function (c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  }
+
+  function couleurDuType(valeurType) {
+    const c = etat.couleursTypes[valeurType];
+    if (!c) { return COULEUR_DEFAUT; }
+    const fill = c.fill || COULEUR_DEFAUT.fill;
+    const text = c.text || (luminance(fill) > 0.55 ? `#262633` : `#ffffff`);
+    return { fill: fill, text: text };
+  }
+
+  function champ(enr, cle) {
+    const col = etat.mappings ? etat.mappings[cle] : null;
+    if (!col) { return undefined; }
+    return enr[col];
+  }
+
+  // --------------------------------------------------------- navigation
+
+  // Le widget tourne dans une iframe. Selon la façon dont Grist verrouille
+  // cette iframe, remplacer la page du haut peut être refusé par le
+  // navigateur, silencieusement. On laisse donc le lien tenter la navigation
+  // (target="_top") et, si le widget est toujours vivant peu après, c'est que
+  // la navigation a été bloquée : on ouvre alors un nouvel onglet.
+  let repli = null;
+
+  function annulerRepli() {
+    if (repli !== null) { clearTimeout(repli); repli = null; }
+  }
+  window.addEventListener(`pagehide`, annulerRepli);
+  window.addEventListener(`beforeunload`, annulerRepli);
+
+  function planifierRepli(url) {
+    annulerRepli();
+    repli = setTimeout(function () {
+      repli = null;
+      try { window.open(url, `_blank`, `noopener`); } catch (e) { /* rien de plus à tenter */ }
+    }, 1200);
+  }
+
+  // ------------------------------------------------------ données Grist
+
+  async function idTableSelectionnee() {
+    try {
+      if (grist.selectedTable && grist.selectedTable.getTableId) {
+        return await grist.selectedTable.getTableId();
+      }
+    } catch (e) { /* on tente l'autre voie */ }
+    try { return await grist.getTable().getTableId(); } catch (e) { return null; }
+  }
+
+  // Grist ne transmet pas les couleurs d'une colonne Choix unique avec les
+  // données : il faut les lire dans les métadonnées du document, ce qui
+  // suppose que le widget est en accès total au document.
+  async function chargerCouleurs(colIdType) {
+    etat.ordreTypes = [];
+    etat.couleursTypes = {};
+    etat.erreurCouleurs = null;
+    if (!colIdType) { return; }
+    try {
+      const idTable = await idTableSelectionnee();
+      if (!idTable) { throw new Error(`table non identifiée`); }
+      const tables = await grist.docApi.fetchTable(`_grist_Tables`);
+      const posTable = (tables.tableId || []).indexOf(idTable);
+      const refTable = posTable === -1 ? null : (tables.id || [])[posTable];
+      if (!refTable) { throw new Error(`table absente des métadonnées`); }
+
+      const colonnes = await grist.docApi.fetchTable(`_grist_Tables_column`);
+      const parents = colonnes.parentId || [];
+      const colIds = colonnes.colId || [];
+      const options = colonnes.widgetOptions || [];
+      let pos = -1;
+      for (let i = 0; i < colIds.length; i++) {
+        if (parents[i] === refTable && colIds[i] === colIdType) { pos = i; break; }
+      }
+      if (pos === -1) { throw new Error(`colonne Type introuvable`); }
+
+      let wo = {};
+      try { wo = JSON.parse(options[pos] || `{}`) || {}; } catch (e) { wo = {}; }
+      etat.ordreTypes = Array.isArray(wo.choices) ? wo.choices.map(texte) : [];
+      const co = wo.choiceOptions || {};
+      Object.keys(co).forEach(function (cle) {
+        const o = co[cle] || {};
+        etat.couleursTypes[cle] = { fill: o.fillColor || null, text: o.textColor || null };
+      });
+    } catch (e) {
+      etat.erreurCouleurs = e && e.message ? e.message : String(e);
+    }
+  }
+
+  // -------------------------------------------------------------- rendu
+
+  function bandeau(classe, morceaux) {
+    const d = document.createElement(`div`);
+    d.className = `bandeau ` + classe;
+    morceaux.forEach(function (n) {
+      d.appendChild(typeof n === `string` ? document.createTextNode(n) : n);
+    });
+    return d;
+  }
+
+  function gras(t) {
+    const b = document.createElement(`b`);
+    b.textContent = t;
+    return b;
+  }
+
+  function afficherBandeaux(sansLien) {
+    const hote = document.getElementById(`bandeaux`);
+    hote.textContent = ``;
+
+    const m = etat.mappings || {};
+    if (!m.Nom || !m.Lien) {
+      const manquantes = [];
+      if (!m.Nom) { manquantes.push(`Nom`); }
+      if (!m.Lien) { manquantes.push(`Lien URL`); }
+      hote.appendChild(bandeau(`bandeau-erreur`, [
+        `Widget non configuré : ouvrez le panneau de droite, section Colonnes, et associez `,
+        gras(manquantes.join(` et `)),
+        ` à la ou aux colonnes correspondantes de votre table.`,
+      ]));
+      return;
+    }
+
+    if (sansLien.length) {
+      const exemples = sansLien.slice(0, MAX_EXEMPLES).join(`, `);
+      const reste = sansLien.length - Math.min(sansLien.length, MAX_EXEMPLES);
+      const suite = reste > 0 ? ` et ` + reste + ` autre` + (reste > 1 ? `s` : ``) : ``;
+      hote.appendChild(bandeau(`bandeau-avert`, [
+        sansLien.length > 1
+          ? sansLien.length + ` raccourcis n'ont pas d'adresse utilisable : `
+          : `1 raccourci n'a pas d'adresse utilisable : `,
+        `vérifiez la colonne `,
+        gras(m.Lien),
+        ` pour `,
+        gras(exemples + suite),
+        `. Une adresse doit commencer par https:// ; copiez-la depuis la barre d'adresse du navigateur, la page Grist étant ouverte.`,
+      ]));
+    }
+
+    if (etat.erreurCouleurs && m.Type) {
+      hote.appendChild(bandeau(`bandeau-avert`, [
+        `Les couleurs de la colonne `,
+        gras(m.Type),
+        ` n'ont pas pu être lues (` + etat.erreurCouleurs + `) : les badges restent gris. Dans le panneau de droite, section Données, réglez l'accès du widget sur `,
+        gras(`Accès total au document`),
+        `.`,
+      ]));
+    }
+  }
+
+  function construireTuile(item) {
+    const cliquable = item.lien !== null;
+    const tuile = document.createElement(cliquable ? `a` : `div`);
+    tuile.className = `tuile` + (cliquable ? `` : ` tuile-inactive`);
+    if (cliquable) {
+      tuile.href = item.lien;
+      tuile.target = `_top`;
+      tuile.rel = `noopener`;
+      tuile.title = item.lien;
+      tuile.addEventListener(`click`, function (ev) {
+        if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) { return; }
+        planifierRepli(item.lien);
+      });
+    }
+
+    const haut = document.createElement(`div`);
+    haut.className = `tuile-haut`;
+    item.types.forEach(function (t) {
+      const c = couleurDuType(t);
+      const badge = document.createElement(`span`);
+      badge.className = `badge`;
+      badge.textContent = t;
+      badge.style.background = c.fill;
+      badge.style.color = c.text;
+      haut.appendChild(badge);
+    });
+    tuile.appendChild(haut);
+
+    if (item.picto) {
+      const p = document.createElement(`div`);
+      p.className = `picto`;
+      p.textContent = item.picto;
+      tuile.appendChild(p);
+    }
+
+    const nom = document.createElement(`div`);
+    nom.className = `nom`;
+    nom.textContent = item.nom || `(sans nom)`;
+    tuile.appendChild(nom);
+
+    if (item.detail) {
+      const d = document.createElement(`div`);
+      d.className = `detail`;
+      d.textContent = item.detail;
+      tuile.appendChild(d);
+    }
+
+    if (!cliquable) {
+      const s = document.createElement(`div`);
+      s.className = `sans-lien`;
+      s.textContent = `Adresse manquante`;
+      tuile.appendChild(s);
+    }
+
+    return tuile;
+  }
+
+  function preparerItems() {
+    const items = [];
+    const sansLien = [];
+    etat.enregistrements.forEach(function (enr) {
+      const nom = texte(champ(enr, `Nom`));
+      const detail = texte(champ(enr, `Detail`));
+      const picto = texte(champ(enr, `Picto`));
+      const types = valeursType(champ(enr, `Type`));
+      const lien = lienSur(champ(enr, `Lien`));
+      if (nom === `` && detail === `` && picto === `` && lien === null) { return; }
+      if (lien === null) { sansLien.push(nom || `ligne ` + enr.id); }
+      items.push({ nom: nom, detail: detail, picto: picto, types: types, lien: lien });
+    });
+    return { items: items, sansLien: sansLien };
+  }
+
+  function filtrer(items) {
+    const q = normaliser(etat.recherche);
+    if (q === ``) { return items; }
+    const mots = q.split(/\s+/).filter(Boolean);
+    return items.filter(function (it) {
+      const cible = normaliser([it.nom, it.detail, it.types.join(` `)].join(` `));
+      return mots.every(function (mot) { return cible.indexOf(mot) !== -1; });
+    });
+  }
+
+  function grouper(items) {
+    const paquets = {};
+    const ordreRencontre = [];
+    items.forEach(function (it) {
+      const cles = it.types.length ? it.types : [SANS_TYPE];
+      cles.forEach(function (cle) {
+        if (!paquets[cle]) { paquets[cle] = []; ordreRencontre.push(cle); }
+        paquets[cle].push(it);
+      });
+    });
+
+    // On respecte d'abord l'ordre des choix défini dans la colonne Grist, puis
+    // les valeurs inattendues, et enfin les lignes sans Type.
+    const ordre = [];
+    etat.ordreTypes.forEach(function (t) {
+      if (paquets[t] && ordre.indexOf(t) === -1) { ordre.push(t); }
+    });
+    ordreRencontre.forEach(function (t) {
+      if (t !== SANS_TYPE && ordre.indexOf(t) === -1) { ordre.push(t); }
+    });
+    if (paquets[SANS_TYPE]) { ordre.push(SANS_TYPE); }
+    return { ordre: ordre, paquets: paquets };
+  }
+
+  function afficher() {
+    const prepare = preparerItems();
+    afficherBandeaux(prepare.sansLien);
+
+    const visibles = filtrer(prepare.items);
+    const total = prepare.items.length;
+    const compteur = document.getElementById(`compteur`);
+    if (total === 0) {
+      compteur.textContent = ``;
+    } else if (visibles.length === total) {
+      compteur.textContent = total + (total > 1 ? ` raccourcis` : ` raccourci`);
+    } else {
+      compteur.textContent = visibles.length + ` sur ` + total + ` affichés`;
+    }
+
+    const contenu = document.getElementById(`contenu`);
+    contenu.textContent = ``;
+
+    if (total === 0) {
+      const v = document.createElement(`div`);
+      v.id = `vide`;
+      v.textContent = `Aucun raccourci dans la table. Ajoutez une ligne, puis renseignez au minimum le nom et l'adresse de la page.`;
+      contenu.appendChild(v);
+      return;
+    }
+    if (visibles.length === 0) {
+      const v = document.createElement(`div`);
+      v.id = `vide`;
+      v.textContent = `Aucun raccourci ne correspond à la recherche.`;
+      contenu.appendChild(v);
+      return;
+    }
+
+    const groupes = grouper(visibles);
+    const avecTitres = groupes.ordre.length > 1 || groupes.ordre[0] !== SANS_TYPE;
+
+    groupes.ordre.forEach(function (cle) {
+      const bloc = document.createElement(`section`);
+      bloc.className = `groupe`;
+
+      if (avecTitres) {
+        const titre = document.createElement(`h2`);
+        titre.className = `groupe-titre`;
+        if (cle !== SANS_TYPE) {
+          const pastille = document.createElement(`span`);
+          pastille.className = `groupe-pastille`;
+          pastille.style.background = couleurDuType(cle).fill;
+          titre.appendChild(pastille);
+        }
+        const libelle = document.createElement(`span`);
+        libelle.textContent = cle === SANS_TYPE ? `Sans type` : cle;
+        titre.appendChild(libelle);
+        const nb = document.createElement(`span`);
+        nb.className = `groupe-nombre`;
+        nb.textContent = `(` + groupes.paquets[cle].length + `)`;
+        titre.appendChild(nb);
+        bloc.appendChild(titre);
+      }
+
+      const grille = document.createElement(`div`);
+      grille.className = `grille`;
+      groupes.paquets[cle].forEach(function (it) { grille.appendChild(construireTuile(it)); });
+      bloc.appendChild(grille);
+      contenu.appendChild(bloc);
+    });
+  }
+
+  // ---------------------------------------------------------- démarrage
+
+  document.getElementById(`recherche`).addEventListener(`input`, function (ev) {
+    etat.recherche = ev.target.value || ``;
+    afficher();
+  });
+
+  document.getElementById(`actualiser`).addEventListener(`click`, async function () {
+    await chargerCouleurs(etat.mappings ? etat.mappings.Type : null);
+    afficher();
+  });
+
+  grist.ready({
+    requiredAccess: `full`,
+    columns: [
+      {
+        name: `Nom`,
+        title: `Nom`,
+        type: `Text,Any`,
+        optional: false,
+        description: `Titre affiché en gras au centre de la tuile.`,
+      },
+      {
+        name: `Detail`,
+        title: `Détail`,
+        type: `Text,Any`,
+        optional: true,
+        description: `Ligne de précision affichée en italique sous le nom.`,
+      },
+      {
+        name: `Picto`,
+        title: `Picto`,
+        type: `Text,Any`,
+        optional: true,
+        description: `Emoji affiché en haut de la tuile.`,
+      },
+      {
+        name: `Type`,
+        title: `Type`,
+        type: `Choice,ChoiceList,Text,Any`,
+        optional: true,
+        description: `Colonne Choix unique. La couleur du badge et l'ordre des sections reprennent la configuration de cette colonne.`,
+      },
+      {
+        name: `Lien`,
+        title: `Lien URL`,
+        type: `Text,Any`,
+        optional: false,
+        description: `Adresse complète de la page à ouvrir, commençant par https://`,
+      },
+    ],
+  });
+
+  let colTypeChargee = null;
+
+  grist.onRecords(async function (enregistrements, mappings) {
+    etat.enregistrements = enregistrements || [];
+    etat.mappings = mappings || null;
+    const colType = mappings ? mappings.Type : null;
+    if (colType !== colTypeChargee) {
+      colTypeChargee = colType;
+      await chargerCouleurs(colType);
+    }
+    afficher();
+  });
+
+  afficher();
+})();
+</script>
+</body>
+</html>
