@@ -46,6 +46,59 @@ restreint, les badges restent gris et un bandeau le signale.
 Si vous modifiez une couleur dans Grist, le bouton Actualiser relit la
 configuration de la colonne sans recharger la page.
 
+## Tout afficher sans barre de défilement
+
+Le widget cherche à faire tenir la totalité des tuiles dans la hauteur du
+panneau. Après chaque affichage, il mesure s'il déborde, et si c'est le cas il
+essaie des configurations de plus en plus compactes jusqu'à ce que tout entre.
+Le calcul est refait automatiquement à chaque redimensionnement du panneau.
+
+Les compromis sont appliqués dans cet ordre. L'espacement et la taille du picto
+diminuent d'abord. Le détail est ensuite limité à deux lignes, puis à une seule,
+puis supprimé. Le nom trop long est à son tour limité à trois lignes puis à
+deux. L'étiquette de Type est réduite à ses trois premières lettres. En dernier
+recours, les titres de section disparaissent et les tuiles sont réunies en une
+seule grille, rangées dans l'ordre des Types, la couleur du badge continuant de
+porter cette information ; la place ainsi libérée permet alors de repartir de
+tuiles plus grandes plutôt que de continuer à les rapetisser.
+
+Le texte intégral reste accessible au survol de la souris. L'infobulle d'une
+tuile reprend toujours le nom complet, le détail complet, le Type complet et
+l'adresse, quelle que soit la densité appliquée.
+
+Cette troncature est une exception délibérée à la règle qui veut qu'un widget ne
+masque jamais du texte utilisateur. Elle a été demandée explicitement, et elle
+est acceptable parce que rien n'est perdu : le raccourcissement est visible
+grâce aux points de suspension, et le texte complet est à un survol de distance.
+
+Deux situations peuvent laisser subsister une barre de défilement. La première
+est un panneau vraiment très bas, de l'ordre de 250 pixels de haut, alors qu'un
+bandeau d'alerte occupe déjà une bonne part de la place. La seconde est un
+nombre de raccourcis trop élevé pour la surface disponible. Dans ces cas, la
+barre de défilement est préférable à du contenu devenu invisible.
+
+Un espace vide peut rester en bas du panneau : le nombre de colonnes de la
+grille est un nombre entier, et passer d'une colonne supplémentaire à la
+suivante se fait par paliers.
+
+## Revenir rapidement à cette page
+
+Le widget ne peut pas installer de raccourci clavier global. Son code ne
+s'exécute que dans le cadre de la page des raccourcis, et dès que vous êtes sur
+une autre page de Grist, plus rien n'écoute le clavier. Deux moyens relèvent du
+navigateur.
+
+Le premier est le retour arrière. Les tuiles ouvrant la page cible dans l'onglet
+courant, la combinaison Alt et flèche gauche ramène à la page précédente, donc
+aux raccourcis. Il faut appuyer plusieurs fois si vous avez enchaîné plusieurs
+pages.
+
+Le second est un mot-clé dans la barre d'adresse. Dans les paramètres du
+navigateur, section moteur de recherche, ajoutez un moteur dont l'adresse est
+celle de la page Grist des raccourcis et dont le raccourci est une lettre. Il
+suffit alors de Ctrl et L, de cette lettre, puis d'Entrée, depuis n'importe
+quelle page.
+
 ## Installation dans Grist
 
 1. Ouvrez la page où vous voulez le menu, puis Ajouter, Ajouter une vue à la table.
