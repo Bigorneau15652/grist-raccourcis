@@ -53,10 +53,16 @@ panneau. Après chaque affichage, il mesure s'il déborde, et si c'est le cas il
 essaie des configurations de plus en plus compactes jusqu'à ce que tout entre.
 Le calcul est refait automatiquement à chaque redimensionnement du panneau.
 
-Les compromis sont appliqués dans cet ordre. L'espacement et la taille du picto
-diminuent d'abord. Le détail est ensuite limité à deux lignes, puis à une seule,
-puis supprimé. Le nom trop long est à son tour limité à trois lignes puis à
-deux. L'étiquette de Type est réduite à ses trois premières lettres. En dernier
+Les sections ne sont pas empilées les unes sous les autres mais disposées en
+colonnes juxtaposées. Sur un panneau large, deux Types se placent côte à côte au
+lieu de laisser la moitié de la largeur inutilisée, ce qui évite de réduire le
+texte alors que la place existe. Sur un panneau étroit, il ne reste qu'une seule
+colonne et l'empilement revient naturellement.
+
+Les compromis sont ensuite appliqués dans cet ordre. L'espacement et la taille du
+picto diminuent d'abord. Le détail est ensuite limité à deux lignes, puis à une
+seule, puis supprimé. Le nom trop long est à son tour limité à trois lignes puis
+à deux. L'étiquette de Type est réduite à ses trois premières lettres. En dernier
 recours, les titres de section disparaissent et les tuiles sont réunies en une
 seule grille, rangées dans l'ordre des Types, la couleur du badge continuant de
 porter cette information ; la place ainsi libérée permet alors de repartir de
