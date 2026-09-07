@@ -7,7 +7,7 @@
 <script>
   // index.html?demo=1 charge un mock minimal de l'API Grist (mock-grist.js) à la
   // place du vrai grist-plugin-api.js, pour pouvoir tester ce fichier (rendu des
-  // tuiles, couleurs de Type, recherche) sans document Grist réel.
+  // tuiles, couleurs de Type, recherche, densité) sans document Grist réel.
   (function () {
     var demo = /(?:^|[?&])demo=1(?:&|$)/.test(location.search);
     if (demo) {
@@ -27,11 +27,27 @@
     --texte: #16202b;
     --texte-doux: #5b6472;
     --fond: #f4f6f8;
+
+    /* Variables pilotées par le calcul de densité, voir ajusterDensite dans le
+       script. Les valeurs ci-dessous correspondent au niveau le plus confortable. */
+    --tuile-min: 150px;
+    --picto: 30px;
+    --nom: 14px;
+    --detail: 12.5px;
+    --lignes: 2;
+    --lignes-nom: 3;
+    --gap: 10px;
+    --pad-tuile: 10px 12px 14px;
+    --marge-groupe: 18px;
+    --titre: 13px;
+    --pad-barre: 8px 12px;
+    --pad-contenu: 12px;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
     padding: 0;
+    height: 100%;
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--texte);
     background: var(--fond);
@@ -46,16 +62,16 @@
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
-    padding: 8px 12px;
+    padding: var(--pad-barre);
     background: #fff;
     border-bottom: 1px solid var(--bordure);
   }
   #recherche {
     flex: 1 1 140px;
-    min-width: 120px;
+    min-width: 110px;
     max-width: 320px;
     font-size: 13px;
-    padding: 6px 9px;
+    padding: 5px 9px;
     border-radius: 6px;
     border: 1px solid #94a3b8;
     background: #ffffff;
@@ -64,7 +80,7 @@
   #recherche::placeholder { color: #7c8797; }
   #barre button {
     font-size: 13px;
-    padding: 6px 10px;
+    padding: 5px 10px;
     border-radius: 6px;
     border: 1px solid #94a3b8;
     background: #ffffff;
@@ -80,7 +96,8 @@
   }
 
   /* Bandeaux d'alerte : contraste fort et solide, jamais dépendants du survol,
-     texte qui passe à la ligne au lieu d'être rogné. */
+     texte qui passe à la ligne au lieu d'être rogné. Ils ne sont jamais
+     concernés par la réduction de densité. */
   #bandeaux { display: flex; flex-direction: column; gap: 8px; }
   #bandeaux:not(:empty) { padding: 10px 12px 0; }
   .bandeau {
@@ -96,16 +113,16 @@
   .bandeau-avert { background: #7a4a12; color: #ffffff; }
   .bandeau b { font-weight: 800; }
 
-  #contenu { padding: 12px; }
+  #contenu { padding: var(--pad-contenu); }
 
-  .groupe { margin-bottom: 18px; }
+  .groupe { margin-bottom: var(--marge-groupe); }
   .groupe:last-child { margin-bottom: 0; }
   .groupe-titre {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 0 8px 0;
-    font-size: 13px;
+    margin: 0 0 6px 0;
+    font-size: var(--titre);
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
@@ -115,8 +132,8 @@
   }
   .groupe-pastille {
     flex: 0 0 auto;
-    width: 12px;
-    height: 12px;
+    width: 11px;
+    height: 11px;
     border-radius: 3px;
     border: 1px solid rgba(0, 0, 0, 0.18);
   }
@@ -126,16 +143,16 @@
      panneau, sans point de rupture codé en dur. */
   .grille {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(var(--tuile-min), 1fr));
+    gap: var(--gap);
     align-items: stretch;
   }
 
   .tuile {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 10px 12px 14px;
+    gap: 5px;
+    padding: var(--pad-tuile);
     background: #ffffff;
     border: 1px solid var(--bordure);
     border-radius: 10px;
@@ -163,7 +180,7 @@
     align-items: flex-start;
     gap: 4px;
     flex-wrap: wrap;
-    min-height: 18px;
+    min-height: 16px;
   }
   .badge {
     display: inline-block;
@@ -171,7 +188,7 @@
     border-radius: 999px;
     font-size: 11px;
     font-weight: 700;
-    line-height: 1.35;
+    line-height: 1.3;
     border: 1px solid rgba(0, 0, 0, 0.12);
     white-space: normal;
     overflow-wrap: anywhere;
@@ -179,24 +196,50 @@
   }
 
   .picto {
-    font-size: 30px;
+    font-size: var(--picto);
     line-height: 1.1;
     white-space: normal;
     overflow-wrap: anywhere;
   }
   .nom {
     font-weight: 700;
-    font-size: 14px;
+    font-size: var(--nom);
+    line-height: 1.25;
     color: var(--texte);
     white-space: normal;
     overflow-wrap: anywhere;
   }
+  /* Meme exception assumee que pour le detail : aux densites serrees, un nom
+     tres long est limite a quelques lignes, le texte entier restant lisible
+     dans l'infobulle de la tuile. */
+  .nom-limite .nom {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--lignes-nom);
+    line-clamp: var(--lignes-nom);
+    overflow: hidden;
+  }
   .detail {
     font-style: italic;
-    font-size: 12.5px;
+    font-size: var(--detail);
+    line-height: 1.3;
     color: var(--texte-doux);
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  /* Exception assumée à la règle « ne jamais rogner du texte utilisateur » :
+     l'utilisateur a explicitement demandé que tout tienne sans barre de
+     défilement, quitte à raccourcir le détail. La troncature n'est appliquée
+     que par les niveaux de densité serrés, elle est signalée par les points de
+     suspension du navigateur, et le texte intégral reste lisible dans
+     l'infobulle de la tuile, qui reprend toujours nom, détail, type et adresse. */
+  .detail-limite .detail {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--lignes);
+    line-clamp: var(--lignes);
+    overflow: hidden;
   }
 
   .tuile-inactive {
@@ -244,6 +287,38 @@
   const COULEUR_DEFAUT = { fill: `#EEEEEE`, text: `#262633` };
   const SANS_TYPE = `\u0000sans-type`;
   const MAX_EXEMPLES = 5;
+  const LETTRES_BADGE = 3;
+
+  // Paliers visuels, du plus confortable au plus serré. Chaque palier réduit,
+  // dans l'ordre, l'espacement, la taille du picto, le nombre de lignes du
+  // détail puis du nom, le détail lui-même, et la longueur de l'étiquette de
+  // Type ramenée à trois lettres.
+  const PALIERS = [
+    { min: `150px`, picto: `30px`, nom: `14px`, detail: `12.5px`, lignes: 0, lignesNom: 0, gap: `10px`, padTuile: `10px 12px 14px`, margeGroupe: `18px`, titre: `13px`, padBarre: `8px 12px`, padContenu: `12px`, badgeCourt: false },
+    { min: `140px`, picto: `27px`, nom: `13.5px`, detail: `12px`, lignes: 2, lignesNom: 0, gap: `9px`, padTuile: `8px 10px 11px`, margeGroupe: `14px`, titre: `12.5px`, padBarre: `7px 12px`, padContenu: `10px`, badgeCourt: false },
+    { min: `130px`, picto: `24px`, nom: `13px`, detail: `11.5px`, lignes: 1, lignesNom: 3, gap: `8px`, padTuile: `7px 9px 9px`, margeGroupe: `12px`, titre: `12px`, padBarre: `6px 10px`, padContenu: `9px`, badgeCourt: false },
+    { min: `120px`, picto: `21px`, nom: `12.5px`, detail: `11px`, lignes: 1, lignesNom: 3, gap: `7px`, padTuile: `6px 8px 8px`, margeGroupe: `10px`, titre: `11.5px`, padBarre: `5px 10px`, padContenu: `8px`, badgeCourt: true },
+    { min: `108px`, picto: `19px`, nom: `12px`, detail: null, lignes: 1, lignesNom: 3, gap: `6px`, padTuile: `5px 7px 7px`, margeGroupe: `9px`, titre: `11px`, padBarre: `5px 9px`, padContenu: `7px`, badgeCourt: true },
+    { min: `96px`, picto: `17px`, nom: `11.5px`, detail: null, lignes: 1, lignesNom: 2, gap: `5px`, padTuile: `4px 6px 6px`, margeGroupe: `7px`, titre: `10.5px`, padBarre: `4px 8px`, padContenu: `6px`, badgeCourt: true },
+    { min: `84px`, picto: `15px`, nom: `11px`, detail: null, lignes: 1, lignesNom: 2, gap: `5px`, padTuile: `4px 5px 5px`, margeGroupe: `6px`, titre: `10px`, padBarre: `4px 8px`, padContenu: `6px`, badgeCourt: true },
+    { min: `70px`, picto: `13px`, nom: `10px`, detail: null, lignes: 1, lignesNom: 2, gap: `4px`, padTuile: `3px 4px 4px`, margeGroupe: `5px`, titre: `10px`, padBarre: `3px 6px`, padContenu: `5px`, badgeCourt: true },
+    { min: `58px`, picto: `12px`, nom: `9.5px`, detail: null, lignes: 1, lignesNom: 2, gap: `3px`, padTuile: `2px 3px 3px`, margeGroupe: `4px`, titre: `10px`, padBarre: `3px 6px`, padContenu: `4px`, badgeCourt: true },
+  ];
+
+  // Le widget essaie ces configurations dans l'ordre et retient la première qui
+  // tient dans la hauteur disponible. Les titres de section sont conservés le
+  // plus longtemps possible ; lorsqu'ils finissent par être abandonnés, la place
+  // ainsi libérée permet de repartir de tuiles confortables plutôt que de
+  // continuer à rapetisser. Sans titres, les tuiles sont réunies en une seule
+  // grille, rangées dans l'ordre des Types, la couleur du badge continuant de
+  // porter l'information.
+  const NIVEAUX = [];
+  PALIERS.slice(0, 6).forEach(function (p) {
+    NIVEAUX.push(Object.assign({}, p, { titres: true }));
+  });
+  PALIERS.slice(1).forEach(function (p) {
+    NIVEAUX.push(Object.assign({}, p, { titres: false }));
+  });
 
   const etat = {
     enregistrements: [],
@@ -252,6 +327,7 @@
     couleursTypes: {},
     erreurCouleurs: null,
     recherche: ``,
+    visibles: [],
   };
 
   // ------------------------------------------------------------- outils
@@ -311,6 +387,10 @@
     const fill = c.fill || COULEUR_DEFAUT.fill;
     const text = c.text || (luminance(fill) > 0.55 ? `#262633` : `#ffffff`);
     return { fill: fill, text: text };
+  }
+
+  function abreger(valeurType) {
+    return valeurType.slice(0, LETTRES_BADGE).toUpperCase();
   }
 
   function champ(enr, cle) {
@@ -392,7 +472,7 @@
     }
   }
 
-  // -------------------------------------------------------------- rendu
+  // ---------------------------------------------------------- bandeaux
 
   function bandeau(classe, morceaux) {
     const d = document.createElement(`div`);
@@ -453,15 +533,27 @@
     }
   }
 
-  function construireTuile(item) {
+  // ------------------------------------------------------------- tuiles
+
+  // L'infobulle reprend toujours l'intégralité des informations, y compris
+  // celles que la densité a raccourcies ou masquées sur la tuile.
+  function infobulle(item) {
+    const lignes = [item.nom || `(sans nom)`];
+    if (item.detail) { lignes.push(item.detail); }
+    if (item.types.length) { lignes.push(`Type : ` + item.types.join(`, `)); }
+    lignes.push(item.lien !== null ? item.lien : `Adresse manquante`);
+    return lignes.join(`\n`);
+  }
+
+  function construireTuile(item, niveau) {
     const cliquable = item.lien !== null;
     const tuile = document.createElement(cliquable ? `a` : `div`);
     tuile.className = `tuile` + (cliquable ? `` : ` tuile-inactive`);
+    tuile.title = infobulle(item);
     if (cliquable) {
       tuile.href = item.lien;
       tuile.target = `_top`;
       tuile.rel = `noopener`;
-      tuile.title = item.lien;
       tuile.addEventListener(`click`, function (ev) {
         if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) { return; }
         planifierRepli(item.lien);
@@ -474,7 +566,8 @@
       const c = couleurDuType(t);
       const badge = document.createElement(`span`);
       badge.className = `badge`;
-      badge.textContent = t;
+      badge.textContent = niveau.badgeCourt ? abreger(t) : t;
+      badge.title = t;
       badge.style.background = c.fill;
       badge.style.color = c.text;
       haut.appendChild(badge);
@@ -493,14 +586,17 @@
     nom.textContent = item.nom || `(sans nom)`;
     tuile.appendChild(nom);
 
-    if (item.detail) {
+    if (item.detail && niveau.detail !== null) {
       const d = document.createElement(`div`);
       d.className = `detail`;
       d.textContent = item.detail;
       tuile.appendChild(d);
     }
 
-    if (!cliquable) {
+    // Aux densités serrées, la mention textuelle est retirée : la bordure en
+    // tirets, le fond grisé et l'infobulle signalent déjà le raccourci
+    // inutilisable, et le bandeau nomme explicitement les lignes à corriger.
+    if (!cliquable && !niveau.badgeCourt) {
       const s = document.createElement(`div`);
       s.className = `sans-lien`;
       s.textContent = `Adresse manquante`;
@@ -509,6 +605,8 @@
 
     return tuile;
   }
+
+  // ------------------------------------------------------- préparation
 
   function preparerItems() {
     const items = [];
@@ -560,40 +658,85 @@
     return { ordre: ordre, paquets: paquets };
   }
 
-  function afficher() {
-    const prepare = preparerItems();
-    afficherBandeaux(prepare.sansLien);
+  // ---------------------------------------------------------- densité
 
-    const visibles = filtrer(prepare.items);
-    const total = prepare.items.length;
-    const compteur = document.getElementById(`compteur`);
-    if (total === 0) {
-      compteur.textContent = ``;
-    } else if (visibles.length === total) {
-      compteur.textContent = total + (total > 1 ? ` raccourcis` : ` raccourci`);
-    } else {
-      compteur.textContent = visibles.length + ` sur ` + total + ` affichés`;
+  function appliquerNiveau(niveau) {
+    const r = document.documentElement.style;
+    r.setProperty(`--tuile-min`, niveau.min);
+    r.setProperty(`--picto`, niveau.picto);
+    r.setProperty(`--nom`, niveau.nom);
+    r.setProperty(`--detail`, niveau.detail || `12px`);
+    r.setProperty(`--lignes`, String(niveau.lignes || 2));
+    r.setProperty(`--gap`, niveau.gap);
+    r.setProperty(`--pad-tuile`, niveau.padTuile);
+    r.setProperty(`--marge-groupe`, niveau.margeGroupe);
+    r.setProperty(`--titre`, niveau.titre);
+    r.setProperty(`--pad-barre`, niveau.padBarre);
+    r.setProperty(`--pad-contenu`, niveau.padContenu);
+    r.setProperty(`--lignes-nom`, String(niveau.lignesNom || 3));
+    document.body.classList.toggle(`detail-limite`, niveau.lignes > 0);
+    document.body.classList.toggle(`nom-limite`, niveau.lignesNom > 0);
+  }
+
+  function deborde() {
+    const doc = document.documentElement;
+    return doc.scrollHeight > doc.clientHeight + 1;
+  }
+
+  // On part du niveau le plus confortable et on resserre tant que le contenu
+  // dépasse la hauteur disponible. Si même le niveau le plus dense déborde,
+  // c'est qu'il y a trop de raccourcis pour la place : une barre de défilement
+  // réapparaît alors, ce qui reste préférable à du contenu invisible.
+  function ajusterDensite() {
+    for (let i = 0; i < NIVEAUX.length; i++) {
+      appliquerNiveau(NIVEAUX[i]);
+      rendreContenu(NIVEAUX[i]);
+      if (!deborde()) { return; }
     }
+  }
 
+  // ------------------------------------------------------------- rendu
+
+  function messageVide(txt) {
+    const v = document.createElement(`div`);
+    v.id = `vide`;
+    v.textContent = txt;
+    return v;
+  }
+
+  function rendreContenu(niveau) {
     const contenu = document.getElementById(`contenu`);
     contenu.textContent = ``;
 
-    if (total === 0) {
-      const v = document.createElement(`div`);
-      v.id = `vide`;
-      v.textContent = `Aucun raccourci dans la table. Ajoutez une ligne, puis renseignez au minimum le nom et l'adresse de la page.`;
-      contenu.appendChild(v);
+    if (etat.visibles === null) {
+      contenu.appendChild(messageVide(`Aucun raccourci dans la table. Ajoutez une ligne, puis renseignez au minimum le nom et l'adresse de la page.`));
       return;
     }
-    if (visibles.length === 0) {
-      const v = document.createElement(`div`);
-      v.id = `vide`;
-      v.textContent = `Aucun raccourci ne correspond à la recherche.`;
-      contenu.appendChild(v);
+    if (etat.visibles.length === 0) {
+      contenu.appendChild(messageVide(`Aucun raccourci ne correspond à la recherche.`));
       return;
     }
 
-    const groupes = grouper(visibles);
+    const groupes = grouper(etat.visibles);
+
+    // Aux densités les plus serrées, les titres de section sont abandonnés au
+    // profit d'une grille unique : les tuiles restent rangées dans l'ordre des
+    // Types, et la couleur du badge continue de signaler le Type.
+    if (!niveau.titres) {
+      const grilleUnique = document.createElement(`div`);
+      grilleUnique.className = `grille`;
+      const deja = [];
+      groupes.ordre.forEach(function (cle) {
+        groupes.paquets[cle].forEach(function (it) {
+          if (deja.indexOf(it) !== -1) { return; }
+          deja.push(it);
+          grilleUnique.appendChild(construireTuile(it, niveau));
+        });
+      });
+      contenu.appendChild(grilleUnique);
+      return;
+    }
+
     const avecTitres = groupes.ordre.length > 1 || groupes.ordre[0] !== SANS_TYPE;
 
     groupes.ordre.forEach(function (cle) {
@@ -621,10 +764,32 @@
 
       const grille = document.createElement(`div`);
       grille.className = `grille`;
-      groupes.paquets[cle].forEach(function (it) { grille.appendChild(construireTuile(it)); });
+      groupes.paquets[cle].forEach(function (it) {
+        grille.appendChild(construireTuile(it, niveau));
+      });
       bloc.appendChild(grille);
       contenu.appendChild(bloc);
     });
+  }
+
+  function afficher() {
+    const prepare = preparerItems();
+    afficherBandeaux(prepare.sansLien);
+
+    const total = prepare.items.length;
+    const visibles = filtrer(prepare.items);
+    etat.visibles = total === 0 ? null : visibles;
+
+    const compteur = document.getElementById(`compteur`);
+    if (total === 0) {
+      compteur.textContent = ``;
+    } else if (visibles.length === total) {
+      compteur.textContent = total + (total > 1 ? ` raccourcis` : ` raccourci`);
+    } else {
+      compteur.textContent = visibles.length + ` sur ` + total + ` affichés`;
+    }
+
+    ajusterDensite();
   }
 
   // ---------------------------------------------------------- démarrage
@@ -637,6 +802,18 @@
   document.getElementById(`actualiser`).addEventListener(`click`, async function () {
     await chargerCouleurs(etat.mappings ? etat.mappings.Type : null);
     afficher();
+  });
+
+  // Le panneau Grist peut être redimensionné à tout moment : la densité est
+  // recalculée après un court délai, pour ne pas rejouer le calcul à chaque
+  // pixel pendant un glissement de la bordure.
+  let attenteRedim = null;
+  window.addEventListener(`resize`, function () {
+    if (attenteRedim !== null) { clearTimeout(attenteRedim); }
+    attenteRedim = setTimeout(function () {
+      attenteRedim = null;
+      afficher();
+    }, 150);
   });
 
   grist.ready({
@@ -654,7 +831,7 @@
         title: `Détail`,
         type: `Text,Any`,
         optional: true,
-        description: `Ligne de précision affichée en italique sous le nom.`,
+        description: `Ligne de précision affichée en italique sous le nom. Elle est raccourcie, puis masquée, si la place manque.`,
       },
       {
         name: `Picto`,
